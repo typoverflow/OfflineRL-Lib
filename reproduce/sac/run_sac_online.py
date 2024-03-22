@@ -1,4 +1,7 @@
 import gym
+import robosuite as suite
+from robosuite.utils.mjmod import DynamicsModder
+from offlinerllib.utils.gym_wrapper import GymWrapper
 import numpy as np
 import torch
 import wandb
@@ -19,6 +22,9 @@ if args.env_type == "dmc":
     args.env = "-".join([args.domain.title(), args.task.title(), "v1"])
 elif args.env_type == "mujoco":
     args.env = args.task
+elif args.env_type == "robosuite":
+    args.env = args.task
+    args.robots = args.robots
 exp_name = "_".join([args.env, "seed"+str(args.seed)]) 
 logger = CompositeLogger(log_dir=f"./log/sac/{args.name}", name=exp_name, logger_config={
     "TensorboardLogger": {}, 
@@ -29,9 +35,28 @@ setup(args, logger)
 if args.env_type == "dmc":
     env = make_dmc(domain_name=args.domain, task_name=args.task)
     eval_env = make_dmc(domain_name=args.domain, task_name=args.task)
-else:
+elif args.env_type == "mujoco":
     env = gym.make(args.env)
     eval_env = gym.make(args.env)
+elif args.env_type == "robosuite":
+    env = GymWrapper(
+        suite.make(
+            args.env,
+            robots=args.robots,
+            use_object_obs=True,
+            reward_shaping=True,
+        ),
+        ["robot0_proprio-state", "object-state"],
+    )
+    eval_env = GymWrapper(
+        suite.make(
+            args.env,
+            robots=args.robots,
+            use_object_obs=True,
+            reward_shaping=True,
+        ),
+        ["robot0_proprio-state", "object-state"],
+    )
 
 obs_shape = env.observation_space.shape[0]
 action_shape = env.action_space.shape[-1]
